@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,12 +8,76 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid()) @map("_id")
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String           @id @default(cuid()) @map("_id")
+  name              String?
+  email             String           @unique
+  emailVerified     DateTime?
+  image             String?
+  password          String
+  sentMessages      Message[]        @relation("SentMessages")
+  messageSeen       MessageSeen[]
+  userConversations UserConversation[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+}
 
+model Message {
+  id              String       @id @default(cuid()) @map("_id")
+  content         String
+  mediaUrl        String?
+  userId          String
+  conversationId  String
+  sender          User         @relation("SentMessages", fields: [userId], references: [id])
+  conversation    Conversation @relation("ConversationMessages", fields: [conversationId], references: [id])
+  wasEdited       Boolean      @default(false)
+  expiresAt       DateTime?
+  isExpired       Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  messageSeen     MessageSeen[]
+}
+
+model Conversation {
+  id                String             @id @default(cuid()) @map("_id")
+  messages          Message[]          @relation("ConversationMessages")
+  userConversations UserConversation[]
+  conversationBots  ConversationBot[]
+  isGroup           Boolean?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model UserConversation {
+  id              String       @id @default(cuid()) @map("_id")
+  userId          String
+  conversationId  String
+  user            User         @relation(fields: [userId], references: [id])
+  conversation    Conversation @relation(fields: [conversationId], references: [id])
+  createdAt       DateTime     @default(now())
+}
+
+model MessageSeen {
+  id              String       @id @default(cuid()) @map("_id")
+  userId          String
+  messageId       String
+  user            User         @relation(fields: [userId], references: [id])
+  message         Message      @relation(fields: [messageId], references: [id])
+  seenAt          DateTime     @default(now())
+}
+
+model ConversationBot {
+  id              String       @id @default(cuid()) @map("_id")
+  conversationId  String
+  botId           String
+  conversation    Conversation @relation(fields: [conversationId], references: [id])
+  bot             Bot          @relation(fields: [botId], references: [id])
+  createdAt       DateTime     @default(now())
+}
+
+model Bot {
+  id              String       @id @default(cuid()) @map("_id")
+  name            String
+  conversationBots ConversationBot[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 }
