@@ -9,6 +9,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarImage, AvatarFallback } from "@radix-ui/react-avatar";
+import Link from "next/link";
 
 const users = [
   {
@@ -34,7 +35,21 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Chats</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-md">Chats</SidebarGroupLabel>
+          {/* Create New Conversation Link */}
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link href={"/new-chat"} className="mt-4 bg-green-600 rounded-[4px] hover:bg-green-800">
+                    <span className="font-bold">Create New Conversation</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+          
+
           <SidebarGroupContent>
             <SidebarMenu>
               {users.map((item) => (
