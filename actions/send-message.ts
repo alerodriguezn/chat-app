@@ -1,5 +1,6 @@
 "use server";
 
+import bcrypt from 'bcrypt';
 import { prisma } from "@/lib/prisma";
 import { pusherEvents, pusherServer } from "@/lib/pusher";
 import { BlobServiceClient } from "@azure/storage-blob";
@@ -25,6 +26,8 @@ export const sendMessage = async (formData: FormData) => {
   if (!sender) {
     throw new Error("Sender not found");
   }
+  const salt = await bcrypt.genSalt(10);
+  const encryptedContent = await bcrypt.hash(content, salt);
 
   let mediaUrl: string | undefined;
   if (mediaFile) {
@@ -126,7 +129,7 @@ export const sendMessage = async (formData: FormData) => {
       sender: true,
     },
     data: {
-      content: content,
+      content: encryptedContent,
       mediaUrl: mediaUrl,
       conversation: {
         connect: { id: conversationId },
@@ -215,3 +218,4 @@ const generateBotResponse = async (conversationId: string, content: string) => {
     }
   }
 };
+

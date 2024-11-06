@@ -110,14 +110,16 @@ model Conversation {
 }
 
 model Message {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
   content         String
   mediaUrl        String?
-  wasEdited       Boolean      @default(false)
+  wasEdited       Boolean  @default(false)
   expiresAt       DateTime?
-  isExpired       Boolean      @default(false)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  isExpired       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  deletedForUserIds String[] @db.ObjectId
 
   seenIds String[] @db.ObjectId
   seen User[] @relation("Seen", fields: [seenIds], references: [id])
@@ -127,7 +129,6 @@ model Message {
 
   senderId String @db.ObjectId
   sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
-
 }
 
 
