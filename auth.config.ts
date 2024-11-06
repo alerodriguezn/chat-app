@@ -1,6 +1,27 @@
 import NextAuth from "next-auth"
-import GitHub from "next-auth/providers/github"
+import { PrismaAdapter } from "@auth/prisma-adapter"
+import Github from "next-auth/providers/github"
+
+import { prisma } from "@/lib/prisma"
  
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [GitHub],
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  adapter: PrismaAdapter(prisma),
+  session: { strategy: "jwt" }, 
+  providers: [Github],
+  callbacks: {
+    jwt( {token, user} ){
+      if(user){
+        token.data = user
+      }
+      return token
+
+    },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    session( { session, token, user } ){
+      session.user = token.data as any;
+      return session
+    },
+
+
+  },
 })
