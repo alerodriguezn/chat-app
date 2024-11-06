@@ -1,16 +1,15 @@
 "use server";
+
 import { prisma } from "@/lib/prisma";
 
 export const getUsersWithConversations = async (userId: string) => {
   try {
-    //Obtiene las conversaciones en las que el usuario actual ha enviado al menos un mensaje
+    // Obtiene las conversaciones en las que el usuario actual ha enviado al menos un mensaje
     const conversations = await prisma.conversation.findMany({
       where: {
         messages: {
           some: {
-            sender: {
-              is: { id: userId }, 
-            },
+            senderId: userId,
           },
         },
       },
@@ -25,7 +24,7 @@ export const getUsersWithConversations = async (userId: string) => {
     // Obtiene los usuarios que participan en esas conversaciones, excluyendo al usuario actual
     const users = await prisma.user.findMany({
       where: {
-        userConversations: { 
+        conversations: {
           some: {
             id: { in: conversationIds },
           },

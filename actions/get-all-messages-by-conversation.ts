@@ -1,11 +1,20 @@
 "use server";
+
 import { prisma } from "@/lib/prisma";
 
-export const getAllMessagesByConversation = async (conversationId: string) => {
+export const getAllMessagesByConversation = async (
+  conversationId: string,
+  userId: string
+) => {
   try {
     const messages = await prisma.message.findMany({
       where: {
         conversationId: conversationId,
+        NOT: {
+          deletedForUserIds: {
+            has: userId // Se filtran los mensajes eliminados para este usuario
+          }
+        }
       },
       orderBy: {
         createdAt: "asc",
@@ -19,6 +28,7 @@ export const getAllMessagesByConversation = async (conversationId: string) => {
         isExpired: true,
         createdAt: true,
         updatedAt: true,
+        deletedForUserIds: true, 
         sender: {
           select: {
             id: true,
