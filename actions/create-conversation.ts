@@ -34,5 +34,8 @@ export const createConversation = async (
     },
   });
 
+  //redirectToChat(conversation.id);
+  
+
   return conversation;
 };
