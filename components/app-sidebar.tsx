@@ -65,7 +65,7 @@ export async function AppSidebar() {
               {users.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild>
-                    <a
+                    <Link
                       href={`/chat/${item.conversations[0].id}`}
                       className="mt-4"
                     >
@@ -77,7 +77,7 @@ export async function AppSidebar() {
                         <AvatarFallback>IMG</AvatarFallback>
                       </Avatar>
                       <span className="font-bold">{item.name}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
