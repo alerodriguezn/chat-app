@@ -75,10 +75,6 @@ export const sendMessage = async (formData: FormData) => {
     ).toString();
 
 
-    const encryptedBotResponse = CryptoJS.AES.encrypt(
-      botResponse!,
-      process.env.ENCRYPTION_KEY!
-    ).toString();
 
     if (botResponse) {
       const botMessage = await prisma.message.create({
