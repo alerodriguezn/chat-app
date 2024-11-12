@@ -1,6 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { pusherEvents } from "@/lib/pusher";
+import { pusherServer } from "@/lib/pusher";
 
 export const deleteMessage = async (conversationId: string, messageId: string, userId: string) => {
   
@@ -23,6 +25,39 @@ export const deleteMessage = async (conversationId: string, messageId: string, u
       id: messageId,
     },
   });
+
+  await pusherServer.trigger(
+    conversationId,
+    pusherEvents.DELETE_MESSAGE,
+    { messageId }
+  );
+
+  const updatedConversation = await prisma.conversation.findUnique({
+    where: {
+      id: conversationId,
+    },
+    include: {
+      users: true,
+      messages: {
+        include: {
+          seen: true,
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 1
+      },
+    },
+  });
+
+  updatedConversation?.users.forEach((user) => {
+    pusherServer.trigger(user.email!, pusherEvents.UPDATE_CONVERSATION, {
+      id: conversationId,
+      messages: updatedConversation.messages,
+    });
+  });
+
+
 
   console.log('Mensaje eliminado exitosamente!');
 };

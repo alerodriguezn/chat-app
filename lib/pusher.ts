@@ -12,6 +12,7 @@ export const pusherServer = new PusherServer({
 export const pusherEvents = {
   NEW_MESSAGE: "messages:new",
   UPDATE_MESSAGE: "message:update",
+  DELETE_MESSAGE: "message:delete", 
   NEW_CONVERSATION: "conversation:new",
   UPDATE_CONVERSATION: "conversation:update",
   DELETE_CONVERSATION: "conversation:remove",
