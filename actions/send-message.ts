@@ -1,10 +1,9 @@
 "use server";
 
-
 import { prisma } from "@/lib/prisma";
 import { pusherEvents, pusherServer } from "@/lib/pusher";
 import { BlobServiceClient } from "@azure/storage-blob";
-import CryptoJS from 'crypto-js';
+import CryptoJS from "crypto-js";
 
 export const sendMessage = async (formData: FormData) => {
   const conversationId = formData.get("conversationId") as string;
@@ -16,13 +15,11 @@ export const sendMessage = async (formData: FormData) => {
     where: { id: conversationId },
   });
 
-  
-
   if (!conversation) {
     throw new Error("Conversation not found");
   }
 
-  const temporalMessages = conversation.temporalMessages
+  const temporalMessages = conversation.temporalMessages;
 
   const sender = await prisma.user.findUnique({
     where: { id: senderId },
@@ -32,8 +29,10 @@ export const sendMessage = async (formData: FormData) => {
     throw new Error("Sender not found");
   }
 
-  const encryptedContent = CryptoJS.AES.encrypt(content, process.env.ENCRYPTION_KEY!).toString();
-  
+  const encryptedContent = CryptoJS.AES.encrypt(
+    content,
+    process.env.ENCRYPTION_KEY!
+  ).toString();
 
   let mediaUrl: string | undefined;
   if (mediaFile) {
@@ -63,9 +62,13 @@ export const sendMessage = async (formData: FormData) => {
 
   // check if the message starts with a command
   if (content.startsWith("!")) {
+
     const botResponse = await generateBotResponse(conversationId, content);
 
-    const encryptedBotResponse = CryptoJS.AES.encrypt(botResponse!, process.env.ENCRYPTION_KEY!).toString();
+    const encryptedBotResponse = CryptoJS.AES.encrypt(
+      botResponse!,
+      process.env.ENCRYPTION_KEY!
+    ).toString();
 
     if (botResponse) {
       const botMessage = await prisma.message.create({
@@ -131,12 +134,10 @@ export const sendMessage = async (formData: FormData) => {
     }
   }
 
-  let expiresAt
-  if (!temporalMessages){
+  let expiresAt;
+  if (!temporalMessages) {
     expiresAt = new Date(new Date().setMinutes(new Date().getMinutes() + 2));
   }
-
-
 
   const newMessage = await prisma.message.create({
     include: {
@@ -230,9 +231,44 @@ const generateBotResponse = async (conversationId: string, content: string) => {
       return `Bot Response: The weather in ${commandValue} is ${weather} with a temperature of ${temperature}°C`;
     }
 
-    if (command === "!task") {
+    if (command === "!ai") {
+      const prompt = content.split(" ").slice(1).join(" ");
+      console.log(prompt);  
+      const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`, 
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      const aiData = await aiResponse.json();
+      const aiMessage = aiData.choices[0].message.content; // Extract the AI's response
+
+      return aiMessage; // Return the AI's response
+    }
+
+    // !addTask Limpiar el cuarto 
+    // !listTasks 
+    // !deleteTask 1
+    if (command === "!addTask") {
+      //insertar en la base de datos en la tabla usuarios
+      // const user = await prisma.user.findUnique({
+      //   where: { id: senderId },
+      // });
+
+      // user?.tasks.push(commandValue);
       return "Task command detected";
+    } else if (command === "!listTasks") {
+      //select de todos los tasks del usuario, devolver un array de strings con los indices de los tasks
+      return "List of tasks";
+    } else if (command === "!deleteTask") {
+      //delete la tarea
+      return "Task deleted";
     }
   }
 };
-

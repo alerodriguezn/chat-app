@@ -38,6 +38,12 @@ export default function MessageArea({
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editMessage, setEditMessage] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Filtrar mensajes según el término de búsqueda
+  const filteredMessages = messages.filter((message) =>
+    message.content.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   useEffect(() => {
     pusherClient.subscribe(conversationId);
@@ -129,9 +135,18 @@ export default function MessageArea({
   }, [message, mediaFile, conversationId, currentUserId]);
 
   return (
-    <div className="flex flex-col justify-between gap-4 h-[90vh]">
+    <div className="flex flex-col justify-between gap-0 h-[90vh]">
+      <div className="flex items-center">
+        <Input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-grow"
+          placeholder="Buscar mensajes..."
+        />
+      </div>
       <ScrollArea className="flex-grow rounded-md border p-4">
-        {messages.map((message, index) => (
+        {filteredMessages.map((message, index) => (
           <div
             key={index}
             className={`flex items-start space-x-2 mb-4 ${
