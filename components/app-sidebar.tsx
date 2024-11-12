@@ -10,8 +10,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+
 import { Avatar, AvatarImage, AvatarFallback } from "@radix-ui/react-avatar";
 import Link from "next/link";
+
 
 export async function AppSidebar() {
   const session = await auth();
@@ -35,7 +37,7 @@ export async function AppSidebar() {
     return {
       name: otherUsers[0].name,
       image: otherUsers[0].image,
-      conversations: [{ id: conversation.id }],
+      conversations: [{ id: conversation.id, temporalMessages: conversation.temporalMessages }],
     };
   });
 
@@ -64,21 +66,23 @@ export async function AppSidebar() {
             <SidebarMenu>
               {users.map((item) => (
                 <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton asChild>
-                    <Link
-                      href={`/chat/${item.conversations[0].id}`}
-                      className="mt-4"
-                    >
-                      <Avatar className="w-8 ">
-                        <AvatarImage
-                          className="rounded-full"
-                          src={item.image ? item.image : ""}
-                        />
-                        <AvatarFallback>IMG</AvatarFallback>
-                      </Avatar>
-                      <span className="font-bold">{item.name}</span>
-                    </Link>
-                  </SidebarMenuButton>
+             
+                      <SidebarMenuButton asChild>
+                        <Link
+                          href={`/chat/${item.conversations[0].id}`}
+                          className="mt-4"
+                        >
+                          <Avatar className="w-8 ">
+                            <AvatarImage
+                              className="rounded-full"
+                              src={item.image ? item.image : ""}
+                            />
+                            <AvatarFallback>IMG</AvatarFallback>
+                          </Avatar>
+                          <span className="font-bold">{item.name}</span>
+                        </Link>
+                      </SidebarMenuButton>
+               
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

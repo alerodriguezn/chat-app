@@ -16,9 +16,13 @@ export const sendMessage = async (formData: FormData) => {
     where: { id: conversationId },
   });
 
+  
+
   if (!conversation) {
     throw new Error("Conversation not found");
   }
+
+  const temporalMessages = conversation.temporalMessages
 
   const sender = await prisma.user.findUnique({
     where: { id: senderId },
@@ -127,6 +131,13 @@ export const sendMessage = async (formData: FormData) => {
     }
   }
 
+  let expiresAt
+  if (!temporalMessages){
+    expiresAt = new Date(new Date().setMinutes(new Date().getMinutes() + 2));
+  }
+
+
+
   const newMessage = await prisma.message.create({
     include: {
       seen: true,
@@ -135,6 +146,8 @@ export const sendMessage = async (formData: FormData) => {
     data: {
       content: encryptedContent,
       mediaUrl: mediaUrl,
+      expiresAt: expiresAt ? expiresAt : null,
+      isExpired: temporalMessages,
       conversation: {
         connect: { id: conversationId },
       },
