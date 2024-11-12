@@ -1,9 +1,10 @@
 "use server";
 
-import bcrypt from 'bcrypt';
+
 import { prisma } from "@/lib/prisma";
 import { pusherEvents, pusherServer } from "@/lib/pusher";
 import { BlobServiceClient } from "@azure/storage-blob";
+import CryptoJS from 'crypto-js';
 
 export const sendMessage = async (formData: FormData) => {
   const conversationId = formData.get("conversationId") as string;
@@ -15,9 +16,13 @@ export const sendMessage = async (formData: FormData) => {
     where: { id: conversationId },
   });
 
+  
+
   if (!conversation) {
     throw new Error("Conversation not found");
   }
+
+  const temporalMessages = conversation.temporalMessages
 
   const sender = await prisma.user.findUnique({
     where: { id: senderId },
@@ -26,8 +31,9 @@ export const sendMessage = async (formData: FormData) => {
   if (!sender) {
     throw new Error("Sender not found");
   }
-  const salt = await bcrypt.genSalt(10);
-  const encryptedContent = await bcrypt.hash(content, salt);
+
+  const encryptedContent = CryptoJS.AES.encrypt(content, process.env.ENCRYPTION_KEY!).toString();
+  
 
   let mediaUrl: string | undefined;
   if (mediaFile) {
@@ -59,6 +65,8 @@ export const sendMessage = async (formData: FormData) => {
   if (content.startsWith("!")) {
     const botResponse = await generateBotResponse(conversationId, content);
 
+    const encryptedBotResponse = CryptoJS.AES.encrypt(botResponse!, process.env.ENCRYPTION_KEY!).toString();
+
     if (botResponse) {
       const botMessage = await prisma.message.create({
         include: {
@@ -66,7 +74,7 @@ export const sendMessage = async (formData: FormData) => {
           sender: true,
         },
         data: {
-          content: botResponse,
+          content: encryptedBotResponse,
           conversation: {
             connect: { id: conversationId },
           },
@@ -123,6 +131,13 @@ export const sendMessage = async (formData: FormData) => {
     }
   }
 
+  let expiresAt
+  if (!temporalMessages){
+    expiresAt = new Date(new Date().setMinutes(new Date().getMinutes() + 2));
+  }
+
+
+
   const newMessage = await prisma.message.create({
     include: {
       seen: true,
@@ -131,6 +146,8 @@ export const sendMessage = async (formData: FormData) => {
     data: {
       content: encryptedContent,
       mediaUrl: mediaUrl,
+      expiresAt: expiresAt ? expiresAt : null,
+      isExpired: temporalMessages,
       conversation: {
         connect: { id: conversationId },
       },

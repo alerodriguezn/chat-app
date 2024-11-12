@@ -1,38 +1,54 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import bcrypt from 'bcrypt';
+import { pusherServer, pusherEvents } from "@/lib/pusher";
+import CryptoJS from 'crypto-js';
 
-export const editMessage = async (
+export const updateMessage = async (
+  conversationId: string,
   messageId: string,
-  userId: string,
-  newContent: string
+  content: string,
+  userId: string
 ) => {
-  const message = await prisma.message.findFirst({
-    where: {
-      id: messageId,
-      senderId: userId,
+  // Verify conversation exists
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    include: {
+      messages: {
+        where: { id: messageId },
+      },
     },
   });
 
-  if (!message) {
-    throw new Error('Mensaje no encontrado o no tienes permiso para editar este mensaje');
+  if (!conversation) {
+    throw new Error("Conversation not found");
   }
 
-  // Encriptar el nuevo contenido del mensaje
-  const salt = await bcrypt.genSalt(10);
-  const encryptedContent = await bcrypt.hash(newContent, salt);
+  // Verify message exists and belongs to user
+  const message = conversation.messages[0];
+  if (!message || message.senderId !== userId) {
+    throw new Error("Message not found or unauthorized");
+  }
 
+  // Encrypt the new content
+  const encryptedContent = CryptoJS.AES.encrypt(content, process.env.ENCRYPTION_KEY!).toString();
+
+  // Update the message
   const updatedMessage = await prisma.message.update({
-    where: {
-      id: messageId,
-    },
-    data: {
-      content: encryptedContent,
-      wasEdited: true,
-      updatedAt: new Date(), 
+    where: { id: messageId },
+    data: { content: encryptedContent, wasEdited: true },
+    include: {
+      seen: true,
+      sender: true,
     },
   });
+
+  // Trigger Pusher event to update message in real-time
+  await pusherServer.trigger(
+    conversationId,
+    pusherEvents.UPDATE_MESSAGE,
+    updatedMessage
+  );
 
   return updatedMessage;
 };

@@ -99,7 +99,7 @@ model Conversation {
   isGroup           Boolean?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
-
+  temporalMessages  Boolean            @default(false)  
 
   messagesIds String[] @db.ObjectId
   messages Message[]

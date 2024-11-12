@@ -9,6 +9,7 @@ export const getUsersWithConversations = async (userId: string) => {
         select: {
           id: true,
           name: true,
+          temporalMessages: true,
           users: {
             select: {
               name: true,

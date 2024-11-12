@@ -3,13 +3,22 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { sendMessage } from "@/actions/send-message";
+import { updateMessage } from "@/actions/edit-message";
+import { deleteMessage } from "@/actions/delete-message";
 import { Button } from "@/components/ui/button";
 import { pusherClient, pusherEvents } from "@/lib/pusher";
 import { FullMessageType } from "@/types";
 import { find } from "lodash";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Paperclip } from "lucide-react"; // Añade esta importación al inicio
+import { Paperclip, Trash2, Pencil } from "lucide-react";
+import CryptoJS from "crypto-js";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 interface Props {
   initialMessages: FullMessageType[];
@@ -26,6 +35,8 @@ export default function MessageArea({
   const [message, setMessage] = useState("");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editMessage, setEditMessage] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,28 +48,62 @@ export default function MessageArea({
         if (find(current, { id: message.id })) {
           return current;
         }
-        return [...current, message];
+        // Decrypt the message content if it exists
+        const decryptedMessage = {
+          ...message,
+          content: message.content
+            ? CryptoJS.AES.decrypt(
+                message.content,
+                process.env.NEXT_PUBLIC_ENCRYPTION_KEY!
+              ).toString(CryptoJS.enc.Utf8)
+            : message.content,
+        };
+        return [...current, decryptedMessage];
       });
       bottomRef?.current?.scrollIntoView({ behavior: "smooth" });
     };
 
     const updateMessageHandler = (newMessage: FullMessageType) => {
       setMessages((current) =>
-        current.map((currentMessage) =>
-          currentMessage.id === newMessage.id ? newMessage : currentMessage
-        )
+        current.map((currentMessage) => {
+          if (currentMessage.id === newMessage.id) {
+            // Decrypt the new message content if it exists
+            return {
+              ...newMessage,
+              content: newMessage.content
+                ? CryptoJS.AES.decrypt(
+                    newMessage.content,
+                    process.env.NEXT_PUBLIC_ENCRYPTION_KEY!
+                  ).toString(CryptoJS.enc.Utf8)
+                : newMessage.content,
+            };
+          }
+          return currentMessage;
+        })
+      );
+    };
+
+    const deleteMessageHandler = ({ messageId }: { messageId: string }) => {
+      setMessages((current) => 
+        current.filter((message) => message.id !== messageId)
       );
     };
 
     pusherClient.bind(pusherEvents.NEW_MESSAGE, messageHandler);
     pusherClient.bind(pusherEvents.UPDATE_MESSAGE, updateMessageHandler);
+    pusherClient.bind(pusherEvents.DELETE_MESSAGE, deleteMessageHandler);
 
     return () => {
       pusherClient.unsubscribe(conversationId);
       pusherClient.unbind(pusherEvents.NEW_MESSAGE, messageHandler);
       pusherClient.unbind(pusherEvents.UPDATE_MESSAGE, updateMessageHandler);
+      pusherClient.unbind(pusherEvents.DELETE_MESSAGE, deleteMessageHandler);
     };
   }, [conversationId]);
+
+  useEffect(() => {
+    fetch('/api')
+  },[])
 
   const handleSendMessage = useCallback(async () => {
     if (!message && !mediaFile) return;
@@ -113,19 +158,89 @@ export default function MessageArea({
                   : "bg-muted"
               }`}
             >
-              <div className="font-semibold mb-1">{message.sender.name}</div>
-              {message.mediaUrl ? (
-                <a
-                  href={message.mediaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 hover:underline"
-                >
-                  View Media
-                </a>
-              ) : (
-                <div>{message.content}</div>
-              )}
+              <ContextMenu>
+                <ContextMenuTrigger>
+                  <div className="font-semibold mb-1">
+                    {message.sender.name}
+                  </div>
+                  {message.mediaUrl ? (
+                    <a
+                      href={message.mediaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      View Media
+                    </a>
+                  ) : editingMessageId === message.id ? (
+                    <div className="flex gap-2">
+                      <Input
+                        value={editMessage}
+                        onChange={(e) => setEditMessage(e.target.value)}
+                        className="flex-grow"
+                      />
+                      <Button 
+                        onClick={async () => {
+                          try {
+                            await updateMessage(conversationId, message.id, editMessage, currentUserId);
+                            setEditingMessageId(null);
+                          } catch (error) {
+                            console.error("Failed to update message:", error);
+                          }
+                        }}
+                      >
+                        Save
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => setEditingMessageId(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <div>
+                      {message.content}
+                      {message.wasEdited && (
+                        <span className="text-xs ml-2 opacity-60">(edited)</span>
+                      )}
+                    </div>
+                  )}
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  {message.sender.id === currentUserId && !message.mediaUrl && (
+                    <ContextMenuItem>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-blue-500 hover:text-blue-600"
+                        onClick={() => {
+                          setEditingMessageId(message.id);
+                          setEditMessage(message.content || "");
+                        }}
+                      >
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit Message
+                      </Button>
+                    </ContextMenuItem>
+                  )}
+                  <ContextMenuItem>
+                    <Button
+                      variant="ghost" 
+                      className="w-full justify-start text-red-500 hover:text-red-600"
+                      onClick={async () => {
+                        try {
+                          await deleteMessage(conversationId, message.id, currentUserId);
+                        } catch (error) {
+                          console.error("Failed to delete message:", error);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Message
+                    </Button>
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             </div>
           </div>
         ))}
