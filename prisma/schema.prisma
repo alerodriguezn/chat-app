@@ -16,7 +16,9 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
-  tasks         String[]
+
+  tasks         String[] @default([])
+
 
   Authenticator Authenticator[]
   createdAt DateTime @default(now())

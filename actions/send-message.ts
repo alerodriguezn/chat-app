@@ -63,7 +63,17 @@ export const sendMessage = async (formData: FormData) => {
   // check if the message starts with a command
   if (content.startsWith("!")) {
 
-    const botResponse = await generateBotResponse(conversationId, content);
+    const botResponse = await generateBotResponse(
+      conversationId,
+      content,
+      senderId
+    );
+
+    const encryptedBotResponse = CryptoJS.AES.encrypt(
+      botResponse!,
+      process.env.ENCRYPTION_KEY!
+    ).toString();
+
 
     const encryptedBotResponse = CryptoJS.AES.encrypt(
       botResponse!,
@@ -204,7 +214,11 @@ export const sendMessage = async (formData: FormData) => {
   return newMessage;
 };
 
-const generateBotResponse = async (conversationId: string, content: string) => {
+const generateBotResponse = async (
+  conversationId: string,
+  content: string,
+  senderId: string
+) => {
   const conversation = await prisma.conversation.findUnique({
     where: { id: conversationId },
   });
@@ -215,8 +229,9 @@ const generateBotResponse = async (conversationId: string, content: string) => {
 
   //check if the content is a command
   if (content.startsWith("!")) {
-    const command = content.split(" ")[0];
-    const commandValue = content.split(" ")[1];
+    const parts = content.split(" ");
+    const command = parts[0];
+    const commandValue = parts.slice(1).join(" ");
 
     if (command === "!weather") {
       const response = await fetch(
@@ -229,6 +244,50 @@ const generateBotResponse = async (conversationId: string, content: string) => {
       const temperature = data.main.temp;
 
       return `Bot Response: The weather in ${commandValue} is ${weather} with a temperature of ${temperature}°C`;
+    }
+
+
+    if (command === "!addTask") {
+      // Agregar tarea
+      const user = await prisma.user.findUnique({ where: { id: senderId } });
+      if (!user) {
+        return "Bot Response: User not found";
+      }
+      const updatedTasks = [...user.tasks, commandValue];
+      await prisma.user.update({
+        where: { id: senderId },
+        data: { tasks: updatedTasks },
+      });
+      return `Bot Response: "${commandValue}" was added to your tasks.`;
+    } else if (command === "!listTask") {
+      // Listar tareas
+      const user = await prisma.user.findUnique({ where: { id: senderId } });
+      if (!user) {
+        return "Bot Response: User not found";
+      }
+      if (user.tasks.length === 0) {
+        return "Bot Response: No tasks found";
+      }
+      const taskList = user.tasks
+        .map((task, index) => ` [${index + 1}]: ${task}`)
+      return `Bot Response: Tasks List:${taskList}`;
+    } else if (command === "!deleteTask") {
+      // Eliminar tarea
+      const taskId = parseInt(commandValue, 10) - 1;
+      const user = await prisma.user.findUnique({ where: { id: senderId } });
+      if (!user) {
+        return "Bot Response: User not found";
+      }
+      if (taskId < 0 || taskId >= user.tasks.length) {
+        return "Bot Response: Invalid task ID";
+      }
+      const deletedTask = user.tasks[taskId];
+      const updatedTasks = user.tasks.filter((_, index) => index !== taskId);
+      await prisma.user.update({
+        where: { id: senderId },
+        data: { tasks: updatedTasks },
+      });
+      return `Bot Response: "${deletedTask}" was deleted from your tasks.`;
     }
 
     if (command === "!ai") {
@@ -269,6 +328,7 @@ const generateBotResponse = async (conversationId: string, content: string) => {
     } else if (command === "!deleteTask") {
       //delete la tarea
       return "Task deleted";
+
     }
   }
 };
