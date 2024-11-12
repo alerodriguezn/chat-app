@@ -62,11 +62,18 @@ export const sendMessage = async (formData: FormData) => {
 
   // check if the message starts with a command
   if (content.startsWith("!")) {
+
     const botResponse = await generateBotResponse(
       conversationId,
       content,
       senderId
     );
+
+    const encryptedBotResponse = CryptoJS.AES.encrypt(
+      botResponse!,
+      process.env.ENCRYPTION_KEY!
+    ).toString();
+
 
     const encryptedBotResponse = CryptoJS.AES.encrypt(
       botResponse!,
@@ -239,6 +246,7 @@ const generateBotResponse = async (
       return `Bot Response: The weather in ${commandValue} is ${weather} with a temperature of ${temperature}°C`;
     }
 
+
     if (command === "!addTask") {
       // Agregar tarea
       const user = await prisma.user.findUnique({ where: { id: senderId } });
@@ -280,6 +288,47 @@ const generateBotResponse = async (
         data: { tasks: updatedTasks },
       });
       return `Bot Response: "${deletedTask}" was deleted from your tasks.`;
+    }
+
+    if (command === "!ai") {
+      const prompt = content.split(" ").slice(1).join(" ");
+      console.log(prompt);  
+      const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`, 
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      const aiData = await aiResponse.json();
+      const aiMessage = aiData.choices[0].message.content; // Extract the AI's response
+
+      return aiMessage; // Return the AI's response
+    }
+
+    // !addTask Limpiar el cuarto 
+    // !listTasks 
+    // !deleteTask 1
+    if (command === "!addTask") {
+      //insertar en la base de datos en la tabla usuarios
+      // const user = await prisma.user.findUnique({
+      //   where: { id: senderId },
+      // });
+
+      // user?.tasks.push(commandValue);
+      return "Task command detected";
+    } else if (command === "!listTasks") {
+      //select de todos los tasks del usuario, devolver un array de strings con los indices de los tasks
+      return "List of tasks";
+    } else if (command === "!deleteTask") {
+      //delete la tarea
+      return "Task deleted";
+
     }
   }
 };
