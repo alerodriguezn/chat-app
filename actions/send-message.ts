@@ -196,33 +196,26 @@ export const sendMessage = async (formData: FormData) => {
     },
   });
 
-  const updatedConversation = await prisma.conversation.update({
-    where: {
-      id: conversationId,
-    },
-    data: {
-      updatedAt: new Date(),
-      messages: {
-        connect: {
-          id: newMessage.id,
+  const [updatedConversation] = await Promise.all([
+    prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        updatedAt: new Date(),
+        messages: {
+          connect: { id: newMessage.id },
         },
       },
-    },
-    include: {
-      users: true,
-      messages: {
-        include: {
-          seen: true,
+      include: {
+        users: true,
+        messages: {
+          include: {
+            seen: true,
+          },
         },
       },
-    },
-  });
-
-  await pusherServer.trigger(
-    conversationId,
-    pusherEvents.NEW_MESSAGE,
-    newMessage
-  );
+    }),
+    pusherServer.trigger(conversationId, pusherEvents.NEW_MESSAGE, newMessage)
+  ]);
 
   const lastMessage =
     updatedConversation.messages[updatedConversation.messages.length - 1];

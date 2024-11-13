@@ -56,19 +56,25 @@ export default function MessageArea({
         if (find(current, { id: message.id })) {
           return current;
         }
-        // Decrypt the message content if it exists
+        // Decrypt once and memoize
+        const decryptedContent = message.content
+          ? CryptoJS.AES.decrypt(
+              message.content,
+              process.env.NEXT_PUBLIC_ENCRYPTION_KEY!
+            ).toString(CryptoJS.enc.Utf8)
+          : message.content;
+        
         const decryptedMessage = {
           ...message,
-          content: message.content
-            ? CryptoJS.AES.decrypt(
-                message.content,
-                process.env.NEXT_PUBLIC_ENCRYPTION_KEY!
-              ).toString(CryptoJS.enc.Utf8)
-            : message.content,
+          content: decryptedContent
         };
-        return [...current, decryptedMessage];
+        
+        const newMessages = [...current, decryptedMessage];
+        requestAnimationFrame(() => {
+          bottomRef?.current?.scrollIntoView({ behavior: "smooth" });
+        });
+        return newMessages;
       });
-      bottomRef?.current?.scrollIntoView({ behavior: "smooth" });
     };
 
     const updateMessageHandler = (newMessage: FullMessageType) => {
