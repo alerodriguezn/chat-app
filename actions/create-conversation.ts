@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 export const createConversation = async (
   creatorId: string,
@@ -34,7 +35,8 @@ export const createConversation = async (
     },
   });
 
-  //redirectToChat(conversation.id);
+  revalidatePath("/");
+  revalidatePath(`/chat/${conversation.id}`);
   
 
   return conversation;

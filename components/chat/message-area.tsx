@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Paperclip, Trash2, Pencil } from "lucide-react";
 import CryptoJS from "crypto-js";
+import Image from "next/image";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -39,6 +40,7 @@ export default function MessageArea({
   const [editMessage, setEditMessage] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [mediaFileName, setMediaFileName] = useState<string | null>(null);
 
   // Filtrar mensajes según el término de búsqueda
   const filteredMessages = messages.filter((message) =>
@@ -54,19 +56,25 @@ export default function MessageArea({
         if (find(current, { id: message.id })) {
           return current;
         }
-        // Decrypt the message content if it exists
+        // Decrypt once and memoize
+        const decryptedContent = message.content
+          ? CryptoJS.AES.decrypt(
+              message.content,
+              process.env.NEXT_PUBLIC_ENCRYPTION_KEY!
+            ).toString(CryptoJS.enc.Utf8)
+          : message.content;
+        
         const decryptedMessage = {
           ...message,
-          content: message.content
-            ? CryptoJS.AES.decrypt(
-                message.content,
-                process.env.NEXT_PUBLIC_ENCRYPTION_KEY!
-              ).toString(CryptoJS.enc.Utf8)
-            : message.content,
+          content: decryptedContent
         };
-        return [...current, decryptedMessage];
+        
+        const newMessages = [...current, decryptedMessage];
+        requestAnimationFrame(() => {
+          bottomRef?.current?.scrollIntoView({ behavior: "smooth" });
+        });
+        return newMessages;
       });
-      bottomRef?.current?.scrollIntoView({ behavior: "smooth" });
     };
 
     const updateMessageHandler = (newMessage: FullMessageType) => {
@@ -118,6 +126,7 @@ export default function MessageArea({
     const formData = new FormData();
     if (mediaFile) {
       formData.append("file", mediaFile);
+      setMediaFileName(mediaFile.name);
     }
     formData.append("content", message);
     formData.append("conversationId", conversationId);
@@ -127,6 +136,7 @@ export default function MessageArea({
       await sendMessage(formData);
       setMessage("");
       setMediaFile(null);
+      setMediaFileName(null);
     } catch (error) {
       console.error("Failed to send message:", error);
     } finally {
@@ -179,14 +189,29 @@ export default function MessageArea({
                     {message.sender.name}
                   </div>
                   {message.mediaUrl ? (
-                    <a
-                      href={message.mediaUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      View Media
-                    </a>
+                    message.mediaUrl.match(/\.(jpeg|jpg|gif|png)$/) ? (
+                      <Image
+                        src={message.mediaUrl}
+                        alt="Media"
+                        className="max-w-full h-auto rounded-lg"
+                        width={300}
+                        height={300}
+                      />
+                    ) : message.mediaUrl.match(/\.(mp4|webm|ogg)$/) ? (
+                      <video controls className="max-w-full h-auto">
+                        <source src={message.mediaUrl} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    ) : (
+                      <a
+                        href={message.mediaUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:underline"
+                      >
+                        View Media
+                      </a>
+                    )
                   ) : editingMessageId === message.id ? (
                     <div className="flex gap-2">
                       <Input
@@ -238,22 +263,24 @@ export default function MessageArea({
                       </Button>
                     </ContextMenuItem>
                   )}
-                  <ContextMenuItem>
-                    <Button
-                      variant="ghost" 
-                      className="w-full justify-start text-red-500 hover:text-red-600"
-                      onClick={async () => {
-                        try {
-                          await deleteMessage(conversationId, message.id, currentUserId);
-                        } catch (error) {
-                          console.error("Failed to delete message:", error);
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Message
-                    </Button>
-                  </ContextMenuItem>
+                  {message.sender.id === currentUserId && (
+                    <ContextMenuItem>
+                      <Button
+                        variant="ghost" 
+                        className="w-full justify-start text-red-500 hover:text-red-600"
+                        onClick={async () => {
+                          try {
+                            await deleteMessage(conversationId, message.id, currentUserId);
+                          } catch (error) {
+                            console.error("Failed to delete message:", error);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Message
+                      </Button>
+                    </ContextMenuItem>
+                  )}
                 </ContextMenuContent>
               </ContextMenu>
             </div>
@@ -269,11 +296,17 @@ export default function MessageArea({
           className="flex-grow"
           placeholder="Write a message..."
         />
+        {mediaFileName && (
+          <span className="text-sm text-gray-500">{mediaFileName}</span>
+        )}
         <div className="relative">
           <input
             type="file"
             accept="image/*,video/*"
-            onChange={(e) => setMediaFile(e.target.files?.[0] || null)}
+            onChange={(e) => {
+              setMediaFile(e.target.files?.[0] || null);
+              setMediaFileName(e.target.files?.[0]?.name || null);
+            }}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             id="file-input"
           />

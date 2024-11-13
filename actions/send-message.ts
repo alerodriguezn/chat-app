@@ -62,18 +62,34 @@ export const sendMessage = async (formData: FormData) => {
 
   // check if the message starts with a command
   if (content.startsWith("!")) {
+    // Enviar el mensaje del usuario
+    const userMessage =  await prisma.message.create({
+      include: {
+        seen: true,
+        sender: true,
+      },
+      data: {
+        content: encryptedContent, // Mensaje del usuario
+        conversation: {
+          connect: { id: conversationId },
+        },
+        sender: {
+          connect: { id: senderId },
+        },
+        seen: {
+          connect: {
+            id: senderId,
+          },
+        },
+      },
+    });
 
+    // Enviar respuesta del bot
     const botResponse = await generateBotResponse(
       conversationId,
       content,
       senderId
     );
-
-    const encryptedBotResponse = CryptoJS.AES.encrypt(
-      botResponse!,
-      process.env.ENCRYPTION_KEY!
-    ).toString();
-
 
     const encryptedBotResponse = CryptoJS.AES.encrypt(
       botResponse!,
@@ -92,7 +108,7 @@ export const sendMessage = async (formData: FormData) => {
             connect: { id: conversationId },
           },
           sender: {
-            connect: { id: senderId },
+            connect: { id: "6733b5740e5995f3f5eaf70d" }, // ID del bot
           },
           seen: {
             connect: {
@@ -109,9 +125,10 @@ export const sendMessage = async (formData: FormData) => {
         data: {
           updatedAt: new Date(),
           messages: {
-            connect: {
-              id: botMessage.id,
-            },
+            connect: [
+              { id: userMessage.id },
+              { id: botMessage.id },
+            ],
           },
         },
         include: {
@@ -127,16 +144,22 @@ export const sendMessage = async (formData: FormData) => {
       await pusherServer.trigger(
         conversationId,
         pusherEvents.NEW_MESSAGE,
+        userMessage
+      );
+
+      await pusherServer.trigger(
+        conversationId,
+        pusherEvents.NEW_MESSAGE,
         botMessage
       );
 
-      const lastMessage =
-        updatedConversation.messages[updatedConversation.messages.length - 1];
+
+      const lastTwoMessages = [userMessage, botMessage];
 
       updatedConversation.users.map((user) => {
         pusherServer.trigger(user.email!, pusherEvents.UPDATE_CONVERSATION, {
           id: conversationId,
-          messages: [lastMessage],
+          messages: lastTwoMessages,
         });
       });
 
@@ -173,33 +196,26 @@ export const sendMessage = async (formData: FormData) => {
     },
   });
 
-  const updatedConversation = await prisma.conversation.update({
-    where: {
-      id: conversationId,
-    },
-    data: {
-      updatedAt: new Date(),
-      messages: {
-        connect: {
-          id: newMessage.id,
+  const [updatedConversation] = await Promise.all([
+    prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        updatedAt: new Date(),
+        messages: {
+          connect: { id: newMessage.id },
         },
       },
-    },
-    include: {
-      users: true,
-      messages: {
-        include: {
-          seen: true,
+      include: {
+        users: true,
+        messages: {
+          include: {
+            seen: true,
+          },
         },
       },
-    },
-  });
-
-  await pusherServer.trigger(
-    conversationId,
-    pusherEvents.NEW_MESSAGE,
-    newMessage
-  );
+    }),
+    pusherServer.trigger(conversationId, pusherEvents.NEW_MESSAGE, newMessage)
+  ]);
 
   const lastMessage =
     updatedConversation.messages[updatedConversation.messages.length - 1];

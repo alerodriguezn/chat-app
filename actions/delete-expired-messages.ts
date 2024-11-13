@@ -5,6 +5,9 @@ export const deleteExpiredMessages = async () => {
   const expiredMessages = await prisma.message.findMany({
     where: {
       isExpired: true,
+      expiresAt: {
+        lte: new Date(),
+      },
     },
   });
 

@@ -13,6 +13,7 @@ import {
 
 import { Avatar, AvatarImage, AvatarFallback } from "@radix-ui/react-avatar";
 import Link from "next/link";
+import { LogOut } from "lucide-react";
 
 
 export async function AppSidebar() {
@@ -43,9 +44,19 @@ export async function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-md">Chats</SidebarGroupLabel>
+      <SidebarContent >
+        <SidebarGroup className="h-full">
+          <div className="flex justify-between items-center gap-36">
+            <SidebarGroupLabel className="text-md">Chats</SidebarGroupLabel>
+            <SidebarMenuButton asChild>
+              <Link
+                href="/api/auth/signout"
+                className="flex items-center"
+              >
+                <LogOut className=" text-red-600 hover:text-red-800" />
+              </Link>
+            </SidebarMenuButton>
+          </div>
           {/* Create New Conversation Link */}
           <SidebarGroupContent>
             <SidebarMenu>
@@ -66,25 +77,24 @@ export async function AppSidebar() {
             <SidebarMenu>
               {users.map((item) => (
                 <SidebarMenuItem key={item.name}>
-             
-                      <SidebarMenuButton asChild>
-                        <Link
-                          href={`/chat/${item.conversations[0].id}`}
-                          className="mt-4"
-                        >
-                          <Avatar className="w-8 ">
-                            <AvatarImage
-                              className="rounded-full"
-                              src={item.image ? item.image : ""}
-                            />
-                            <AvatarFallback>IMG</AvatarFallback>
-                          </Avatar>
-                          <span className="font-bold">{item.name}</span>
-                        </Link>
-                      </SidebarMenuButton>
-               
+                  <SidebarMenuButton asChild>
+                    <Link
+                      href={`/chat/${item.conversations[0].id}`}
+                      className="mt-4"
+                    >
+                      <Avatar className="w-8 ">
+                        <AvatarImage
+                          className="rounded-full"
+                          src={item.image ? item.image : ""}
+                        />
+                        <AvatarFallback>IMG</AvatarFallback>
+                      </Avatar>
+                      <span className="font-bold">{item.name}</span>
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
