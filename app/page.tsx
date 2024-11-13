@@ -11,7 +11,7 @@ export default async function Home() {
   return (
     <div className="flex flex-col justify-center items-center gap-4 h-full">
       <Zap color="yellow" className="w-10 h-10 animate-pulse" />
-      <h1 className="text-2xl font-bold text-white">Welcome to the chat app</h1>
+      <h1 className="text-2xl font-bold text-white">Welcome to Lightning Chat</h1>
       {
         session?.user ? (
           <p>You are logged in as {session.user.name}</p>
